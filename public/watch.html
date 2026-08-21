@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RAMBDACAST</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: #000;
+      color: #eaeaea;
+      font-family: system-ui, sans-serif;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+    }
+    header img {
+      width: 160px;
+      max-width: 40vw;
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(28px, 6vw, 56px);
+      letter-spacing: 0.1em;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+    }
+    header .tagline {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      color: #999;
+      text-transform: uppercase;
+    }
+    .socials {
+      display: flex;
+      gap: 16px;
+      margin-top: 4px;
+    }
+    .socials a {
+      color: #999;
+      text-decoration: none;
+      font-size: 13px;
+      border: 1px solid #333;
+      border-radius: 999px;
+      padding: 4px 12px;
+    }
+    .socials a:hover {
+      color: #fff;
+      border-color: #666;
+    }
+    video {
+      width: min(90vw, 960px);
+      aspect-ratio: 16 / 9;
+      background: #000;
+    }
+    #status {
+      font-size: 14px;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://anabastos.me/dj/assets/logo-transparent.png" alt="DJ RAMBDA" />
+    <h1>RAMBDACAST</h1>
+    <p class="tagline">unleashing raw rave energy and euphoric chaos</p>
+    <div class="socials">
+      <a href="https://wa.me/5511986993010" target="_blank" rel="noopener">WhatsApp</a>
+      <a href="https://instagram.com/naluportello" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://soundcloud.com/djrambda" target="_blank" rel="noopener">SoundCloud</a>
+      <a href="https://www.youtube.com/@naluportello" target="_blank" rel="noopener">YouTube</a>
+      <a href="https://www.twitch.tv/naluportello" target="_blank" rel="noopener">Twitch</a>
+    </div>
+  </header>
+  <video id="player" controls autoplay muted playsinline></video>
+  <div id="status">Procurando live...</div>
+
+  <script>
+    const video = document.getElementById("player");
+    const statusEl = document.getElementById("status");
+    let hls = null;
+    let currentUrl = null;
+
+    async function checkPlayback() {
+      try {
+        const res = await fetch("/playback");
+        if (!res.ok) {
+          if (hls) { hls.destroy(); hls = null; }
+          video.removeAttribute("src");
+          currentUrl = null;
+          statusEl.textContent = "Nenhuma live ativa no momento.";
+          return;
+        }
+
+        const data = await res.json();
+        statusEl.textContent = `Ao vivo: ${data.title}`;
+
+        if (data.playbackUrl !== currentUrl) {
+          currentUrl = data.playbackUrl;
+          startPlayback(currentUrl);
+        }
+      } catch (err) {
+        statusEl.textContent = "Erro ao consultar o servidor.";
+      }
+    }
+
+    function startPlayback(url) {
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = url;
+      } else if (Hls.isSupported()) {
+        hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+      }
+    }
+
+    checkPlayback();
+    setInterval(checkPlayback, 5000);
+  </script>
+</body>
+</html>

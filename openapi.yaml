@@ -1,0 +1,304 @@
+openapi: 3.0.3
+info:
+  title: rambdacast — world-ingest-vm API
+  description: >
+    API HTTP do serviço de ingest de live streaming (RTMP → HLS).
+    Gerencia a criação/consulta/encerramento de uma sessão de live e
+    valida publishes do MediaMTX via callback interno.
+    Ver STREAMING_ARCHITECTURE.md e README.md para o fluxo completo.
+  version: "0.1.0"
+servers:
+  - url: http://localhost:8081
+    description: Local / VM (porta configurável via INGEST_API_PORT)
+
+tags:
+  - name: health
+    description: Health check
+  - name: ingest
+    description: Criação e controle da sessão de live (requer API key)
+  - name: public
+    description: Rotas públicas de consumo/visualização da live, sem autenticação
+  - name: internal
+    description: Callbacks internos usados pelo MediaMTX (não chamar externamente)
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check do serviço
+      responses:
+        "200":
+          description: Serviço saudável
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: vm-ingest-service
+                  status:
+                    type: string
+                    example: ok
+
+  /playback:
+    get:
+      tags: [public]
+      summary: Dados de playback da live ativa (rota pública)
+      description: >
+        Não exige API key. Expõe apenas o mínimo necessário para tocar a
+        live (título, status e playbackUrl), usado pela página /watch.
+      responses:
+        "200":
+          description: Live ativa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title:
+                    type: string
+                  status:
+                    type: string
+                    enum: [live]
+                  playbackUrl:
+                    type: string
+        "404":
+          description: Nenhuma live ativa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+
+  /watch:
+    get:
+      tags: [public]
+      summary: Página HTML de player (viewer de referência)
+      description: >
+        Serve uma página estática com hls.js que consome /playback
+        automaticamente e reproduz a live quando ativa.
+      responses:
+        "200":
+          description: Página HTML
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /ingest/create:
+    post:
+      tags: [ingest]
+      summary: Cria uma nova sessão de live
+      description: >
+        Gera uma stream key, libera o publish no MediaMTX e retorna as URLs
+        de ingest (RTMP) e playback (HLS). Falha se já houver uma live ativa.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIngestInput"
+      responses:
+        "201":
+          description: Sessão de live criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamSession"
+        "401":
+          description: API key ausente ou inválida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "409":
+          description: Já existe uma live ativa
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ErrorMessage"
+                  - type: object
+                    properties:
+                      stream:
+                        $ref: "#/components/schemas/StreamSession"
+
+  /ingest/current:
+    get:
+      tags: [ingest]
+      summary: Retorna a sessão de live ativa
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Sessão ativa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamSession"
+        "401":
+          description: API key ausente ou inválida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Nenhuma live ativa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+
+  /ingest/end:
+    post:
+      tags: [ingest]
+      summary: Encerra a live ativa
+      description: Revoga a stream key e marca a sessão como encerrada.
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Live encerrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Stream ended
+                  stream:
+                    $ref: "#/components/schemas/StreamSession"
+        "401":
+          description: API key ausente ou inválida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "404":
+          description: Nenhuma live ativa para encerrar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+
+  /internal/mediamtx/auth:
+    post:
+      tags: [internal]
+      summary: Callback de autorização de publish do MediaMTX
+      description: >
+        Uso exclusivo do MediaMTX (authHTTPAddress). Valida se a stream key
+        extraída do path está entre as keys liberadas por /ingest/create.
+        Não deve ser chamado por clientes externos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  example: publish
+                path:
+                  type: string
+                  example: /live/a1b2c3d4e5f6
+      responses:
+        "200":
+          description: Ação permitida (não é publish, ou stream key válida)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+        "401":
+          description: Stream key ausente ou não autorizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Valor definido em INGEST_API_KEY
+
+  schemas:
+    ErrorMessage:
+      type: object
+      properties:
+        message:
+          type: string
+
+    CreateIngestInput:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Nome da live
+          description: Título opcional da live (default "Untitled Stream")
+
+    AudioPreset:
+      type: object
+      properties:
+        codec:
+          type: string
+          enum: [aac]
+        bitrateKbps:
+          type: integer
+          example: 192
+        sampleRateHz:
+          type: integer
+          example: 48000
+        channels:
+          type: integer
+          example: 2
+
+    StreamSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum: [idle, live, ended]
+        rtmpUrl:
+          type: string
+          example: rtmp://ingest.your-nas-dns.example:1935/live
+        streamKey:
+          type: string
+          example: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+        playbackUrl:
+          type: string
+          example: http://ingest.your-nas-dns.example:8000/live/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/index.m3u8
+        provider:
+          type: string
+          enum: [vm]
+        recommendedAudio:
+          $ref: "#/components/schemas/AudioPreset"
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - status
+        - rtmpUrl
+        - streamKey
+        - playbackUrl
+        - provider
+        - startedAt

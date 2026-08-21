@@ -1,0 +1,16 @@
+services:
+  ingest:
+    build: .
+    container_name: rambdacast-ingest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      RTMP_MEDIA_ROOT: /app/media
+      MEDIAMTX_PATH: /usr/local/bin/mediamtx
+    ports:
+      - "8081:8081" # ingest API (x-api-key)
+      - "1935:1935" # RTMP (OBS)
+      - "8000:8000" # HLS playback
+    volumes:
+      - ./media:/app/media
