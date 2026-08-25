@@ -48,6 +48,24 @@ npm run build
 npm start
 ```
 
+## Atalhos com Make
+
+O `Makefile` na raiz evita repetir os comandos `curl` e lê `INGEST_API_KEY` do `.env`:
+
+```bash
+make live-create TITLE="Nome da live"
+make live-current
+make live-end
+make playback
+make watch-url
+```
+
+Também existem os aliases `make create`, `make current` e `make end`. Para usar outra API ou chave, sobrescreva `API_URL` e `API_KEY`, por exemplo:
+
+```bash
+make live-create API_URL=http://192.168.15.9:8081 API_KEY=chocolate TITLE="rambdacast test"
+```
+
 ## Variáveis de ambiente
 
 | Variável | Descrição | Default |

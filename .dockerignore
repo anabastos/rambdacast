@@ -1,0 +1,9 @@
+node_modules
+dist
+media
+.env
+.env.*
+*.md
+.git
+.clj-kondo
+.lsp
