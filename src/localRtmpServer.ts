@@ -3,37 +3,10 @@ import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
+import { getAppName, getHttpPort, getIngestApiPort, getIngestPort } from "./publicUrls";
+
 const allowedKeys = new Set<string>();
 let started = false;
-
-function getEnvNumber(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) {
-    return fallback;
-  }
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function getIngestHost(): string {
-  return process.env.RTMP_INGEST_HOST ?? "localhost";
-}
-
-function getIngestPort(): number {
-  return getEnvNumber("RTMP_INGEST_PORT", 1935);
-}
-
-function getHttpPort(): number {
-  return getEnvNumber("RTMP_HTTP_PORT", 8000);
-}
-
-function getAppName(): string {
-  return process.env.RTMP_APP_NAME ?? "live";
-}
-
-function getIngestApiPort(): number {
-  return getEnvNumber("INGEST_API_PORT", 8081);
-}
 
 function getMediaMtxPath(): string {
   return process.env.MEDIAMTX_PATH ?? "/usr/local/bin/mediamtx";
@@ -62,14 +35,6 @@ export function revokeStreamKey(streamKey: string): void {
 
 export function isStreamKeyAllowed(streamKey: string): boolean {
   return allowedKeys.has(streamKey);
-}
-
-export function getIngestRtmpUrl(): string {
-  return `rtmp://${getIngestHost()}:${getIngestPort()}/${getAppName()}`;
-}
-
-export function getPlaybackUrl(streamKey: string): string {
-  return `http://${getIngestHost()}:${getHttpPort()}/${getAppName()}/${streamKey}/index.m3u8`;
 }
 
 function getAuthHttpAddress(): string {

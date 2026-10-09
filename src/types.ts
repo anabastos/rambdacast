@@ -14,6 +14,8 @@ export interface StreamSession {
   rtmpUrl: string;
   streamKey: string;
   playbackUrl: string;
+  /** Origem publica da API + /watch. Env: PUBLIC_API_BASE_URL. */
+  watchUrl: string;
   provider: "vm";
   recommendedAudio?: AudioPreset;
   startedAt: string;

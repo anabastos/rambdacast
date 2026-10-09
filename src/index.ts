@@ -9,12 +9,11 @@ import express from "express";
 import {
   allowStreamKey,
   extractStreamKey,
-  getIngestRtmpUrl,
   isStreamKeyAllowed,
-  getPlaybackUrl,
   revokeStreamKey,
   startLocalRtmpServer
 } from "./localRtmpServer";
+import { getIngestRtmpUrl, getPlaybackUrl, getWatchUrl } from "./publicUrls";
 import { clearCurrentStream, endCurrentStream, getCurrentStream, setCurrentStream } from "./streamStore";
 import { CreateIngestInput, StreamSession } from "./types";
 
@@ -72,7 +71,11 @@ app.get("/watch", (_req, res) => {
 
 app.use(express.static(join(__dirname, "..", "public")));
 
-app.use("/ingest", (req, res, next) => {
+/**
+ * Nada de sessao ativa sai sem a chave — inclusive o alias `/stream/current`.
+ * O `streamKey` do payload publica na live: expor isso e publicar a live.
+ */
+app.use(["/ingest", "/stream"], (req, res, next) => {
   const apiKey = req.header("x-api-key");
   if (!apiKey || apiKey !== ingestApiKey) {
     return res.status(401).json({ message: "Invalid API key" });
@@ -103,6 +106,7 @@ app.post("/ingest/create", (req, res) => {
     rtmpUrl: getIngestRtmpUrl(),
     streamKey,
     playbackUrl: getPlaybackUrl(streamKey),
+    watchUrl: getWatchUrl(),
     provider: "vm",
     recommendedAudio: {
       codec: "aac",
@@ -118,14 +122,21 @@ app.post("/ingest/create", (req, res) => {
   return res.status(201).json(stream);
 });
 
-app.get("/ingest/current", (_req, res) => {
+/**
+ * A sessao ativa em dois nomes: `/ingest/current` (contrato do world-ingest) e
+ * `/stream/current` (o nome da fachada do world-service). Mesmo dado — quem
+ * integra chama de um jeito ou do outro.
+ */
+function currentStreamHandler(_req: express.Request, res: express.Response) {
   const stream = getCurrentStream();
   if (!stream || stream.status !== "live") {
     return res.status(404).json({ message: "No active stream" });
   }
 
   return res.json(stream);
-});
+}
+
+app.get(["/ingest/current", "/stream/current"], currentStreamHandler);
 
 app.post("/ingest/end", (_req, res) => {
   const stream = getCurrentStream();
