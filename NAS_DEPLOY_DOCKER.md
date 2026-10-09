@@ -95,6 +95,24 @@ PUBLIC_PLAYBACK_BASE_URL=https://live.seu-dominio.example
 RTMP_INGEST_HOST=192.168.15.9   # OBS publica na LAN; publicando de fora, veja a secao acima
 ```
 
+#### Caso real: `app.portellolabs.co` (um hostname, regra de path)
+
+O tunel do NAS atende **um** hostname com duas regras de path — `^/live/.*` no MediaMTX (`:8000`) e o resto na API (`:8081`) — entao playback e player ficam na mesma origem e so o RTMP continua na LAN:
+
+```dotenv
+PUBLIC_RTMP_BASE_URL=rtmp://192.168.15.9:1935      # OBS, de dentro da casa
+PUBLIC_PLAYBACK_BASE_URL=https://app.portellolabs.co   # HLS (:8000 via /live/*)
+PUBLIC_API_BASE_URL=https://app.portellolabs.co        # watchUrl
+```
+
+Sem os tres, as URLs saem em `http://192.168.15.9:...` e o sintoma nao e erro de rede e sim player girando pra sempre: a pagina `/watch` e https, entao o browser bloqueia o `.m3u8` em http como mixed content (e quem esta fora da LAN nem alcanca o IP privado).
+
+Depois de mexer no `.env` o rebuild e obrigatorio — `restart` reusa a imagem antiga e a mudanca nao aparece:
+
+```bash
+cd /volume1/project/rambdacast && git pull && docker compose up -d --build
+```
+
 ## 4) Configurar backend hosteado
 
 Mesma configuracao da secao 10 do guia de GCP, so trocando o host:
