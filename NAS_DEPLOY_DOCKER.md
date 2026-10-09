@@ -107,6 +107,12 @@ DEFAULT_LIVE_TIMEOUT_MS=10000
 
 `VM_INGEST_*` ainda funciona como fallback, mas os nomes atuais sao `DEFAULT_LIVE_*` (ver `apps/world-service/.env.example`). O world-service chama `GET /ingest/current`; a mesma sessao tambem responde em `GET /stream/current`, o nome da fachada que o front consome.
 
+Este ingest **nao escreve o no da RTDB** (nao tem cliente de Firebase), entao ligue a flag que faz a fachada assumir o no — sem ela o `/stream/current` devolve a sessao, mas o `RoomState` fica sem `playbackUrl`:
+
+```dotenv
+DEFAULT_LIVE_PUBLISHES_ACTIVE_STREAM=false
+```
+
 ## 5) Operacao
 
 ```bash
