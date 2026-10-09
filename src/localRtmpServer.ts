@@ -53,7 +53,7 @@ function createMediaMtxConfigFile(): string {
     `hlsAddress: :${getHttpPort()}`,
     "hlsAlwaysRemux: yes",
     "hlsSegmentDuration: 2s",
-    "hlsSegmentCount: 6",
+    "hlsSegmentCount: 7",
     "webrtc: no",
     "srt: no",
     "rtmp: yes",
